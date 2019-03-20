@@ -1,0 +1,31 @@
+{
+  "name": "ky8er-music-bot",
+  "version": "1.0.0",
+  "description": "Test Music Bot",
+  "main": "main.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JakeWard98/Ky8er-Music-Bot.git"
+  },
+  "keywords": [
+    "Music",
+    "Bot"
+  ],
+  "author": "Jake Ward",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/JakeWard98/Ky8er-Music-Bot/issues"
+  },
+  "homepage": "https://github.com/JakeWard98/Ky8er-Music-Bot#readme",
+  "dependencies": {
+    "discord.js": "^11.4.2",
+    "fs": "0.0.1-security",
+    "get-youtube-id": "^1.0.1",
+    "request": "^2.88.0",
+    "youtube-info": "^1.3.2",
+    "ytdl-core": "^0.29.1"
+  }
+}
