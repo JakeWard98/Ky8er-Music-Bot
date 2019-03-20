@@ -1,2 +1,5 @@
 # Ky8er-Music-Bot
-A Music Bot For Practice
+Test Bot for Playing Music from YT, will be used for Main Bot
+
+-------
+ Jake Ward
