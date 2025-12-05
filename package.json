@@ -21,7 +21,7 @@
   },
   "homepage": "https://github.com/JakeWard98/Ky8er-Music-Bot#readme",
   "dependencies": {
-    "discord.js": "^11.4.2",
+    "discord.js": "^11.6.4",
     "ffmpeg-binaries": "^4.0.0",
     "fs": "0.0.1-security",
     "get-youtube-id": "^1.0.1",
