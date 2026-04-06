@@ -1,6 +1,6 @@
 # Ky8er Music Bot
 
-A minimal Discord music bot built on **discord.js v14** and **@discordjs/voice**, running on **Node 20 LTS**. Designed to run as a long-lived service on a Linux VM / VPS / dedicated server under `systemd`. Slash commands only — no message-content intent required.
+A minimal Discord music bot built on **discord.js v14** and **@discordjs/voice**, running on **Node 20 LTS**. Designed to run as a long-lived service on a VM / VPS / dedicated server — supported on **Linux** (`systemd`) and **Windows** (`NSSM`). Slash commands only — no message-content intent required.
 
 ## Features
 
@@ -16,12 +16,13 @@ A minimal Discord music bot built on **discord.js v14** and **@discordjs/voice**
 
 ## Requirements
 
-- Node.js **20+**
+- Node.js **20+** (Linux, Windows, or macOS)
 - A Discord bot application with the following:
   - **Bot scopes**: `bot`, `applications.commands`
   - **Bot permissions**: `View Channels`, `Connect`, `Speak`, `Send Messages`, `Use Application Commands`
   - **Privileged intents**: none (this bot does not need Message Content)
-- ffmpeg is provided automatically via the `ffmpeg-static` npm package — no system install required
+- ffmpeg is provided automatically via the `ffmpeg-static` npm package (ships prebuilt Linux/Windows/macOS binaries) — no system install required
+- `@discordjs/opus` ships prebuilt binaries for Linux, Windows, and macOS, so no C++ build toolchain is required on supported platforms
 
 ## Local development
 
@@ -36,10 +37,22 @@ npm run deploy-commands
 npm start
 ```
 
-## Production deployment (Linux VM / VPS / server)
+## Production deployment
 
-The bot is intended to be deployed on a Linux server (Ubuntu 22.04+/Debian 12+
-recommended) and supervised by **systemd**. A hardened unit file is provided at
+The bot is intended to run as a long-lived background service on a VM, VPS, or
+dedicated server. Two supported paths are documented below — pick whichever
+matches your host OS:
+
+- [**Linux** (`systemd`)](#linux-vm--vps--server-systemd)
+- [**Windows** (`NSSM`)](#windows-vm--server-nssm)
+
+Both achieve the same end state: the bot starts on boot, restarts on failure,
+shuts down gracefully on SIGINT/Ctrl+C, and writes logs to a system-managed
+sink.
+
+### Linux VM / VPS / server (systemd)
+
+A hardened unit file is provided at
 [`deploy/ky8er-music-bot.service`](deploy/ky8er-music-bot.service).
 
 ### 1. Provision the server
@@ -128,7 +141,124 @@ systemctl restart ky8er-music-bot
 > opened on the VPS.
 >
 > **Containers**: a Dockerfile is intentionally not provided — the systemd
-> path is the supported deployment mode.
+> and NSSM paths are the supported deployment modes.
+
+### Windows VM / server (NSSM)
+
+On a Windows host (Windows Server 2019+ or Windows 10/11), the bot is
+supervised by [NSSM](https://nssm.cc) — a small, well-trusted wrapper that
+turns any executable into a proper Windows service. A PowerShell installer is
+provided at
+[`deploy/windows/install-service.ps1`](deploy/windows/install-service.ps1).
+
+#### 1. Install prerequisites
+
+From an **elevated PowerShell** prompt:
+
+```powershell
+# Install Node 20 LTS — https://nodejs.org/en/download/  (or via winget)
+winget install OpenJS.NodeJS.LTS
+
+# Install NSSM — https://nssm.cc  (or via Chocolatey)
+choco install nssm -y          # easiest
+# OR: download nssm.exe and place it on PATH
+```
+
+Outbound HTTPS to Discord and YouTube is the only network requirement. No
+inbound firewall rules are needed.
+
+#### 2. Install the bot
+
+```powershell
+# Clone to a stable location
+git clone https://github.com/JakeWard98/Ky8er-Music-Bot.git C:\ky8er-music-bot
+cd C:\ky8er-music-bot
+
+# Install production dependencies
+npm ci --omit=dev
+
+# Configure secrets
+Copy-Item .env.example .env
+notepad .env
+# Fill in DISCORD_TOKEN, DISCORD_CLIENT_ID (and optionally GUILD_ID).
+# Keep NODE_ENV=production.
+```
+
+Lock down `.env` so only Administrators and SYSTEM can read it:
+
+```powershell
+icacls .env /inheritance:r /grant:r "BUILTIN\Administrators:R" "NT AUTHORITY\SYSTEM:R"
+```
+
+#### 3. Register slash commands (one-shot)
+
+```powershell
+node src\deploy-commands.js
+```
+
+Re-run after adding/renaming commands.
+
+#### 4. Install and start the Windows service
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+.\deploy\windows\install-service.ps1
+```
+
+The script:
+
+- Creates a Windows service named `Ky8erMusicBot` (auto-start on boot)
+- Runs `node.exe src\index.js` from `C:\ky8er-music-bot`
+- Writes stdout/stderr to `C:\ky8er-music-bot\logs\stdout.log` and `stderr.log`
+  with rotation at 10 MiB
+- Restarts on failure with a 5 s back-off
+- On stop, sends a `Ctrl+C` (mapped to `SIGINT` in Node) and waits up to 15 s
+  for the bot to drain — matching the in-process graceful shutdown handler
+  that destroys voice connections and flushes pino
+
+You can pass overrides if your layout differs:
+
+```powershell
+.\deploy\windows\install-service.ps1 -InstallDir D:\bots\ky8er-music-bot -ServiceName Ky8erMusicBot
+```
+
+#### 5. Manage the service
+
+```powershell
+nssm status   Ky8erMusicBot
+nssm restart  Ky8erMusicBot
+nssm stop     Ky8erMusicBot
+nssm remove   Ky8erMusicBot confirm     # uninstall
+
+# Or via the built-in Windows tooling:
+Get-Service Ky8erMusicBot
+Restart-Service Ky8erMusicBot
+```
+
+#### 6. View logs
+
+```powershell
+Get-Content C:\ky8er-music-bot\logs\stdout.log -Wait -Tail 50
+Get-Content C:\ky8er-music-bot\logs\stderr.log -Wait -Tail 50
+```
+
+In production (`NODE_ENV=production`) pino emits one JSON line per event. To
+pretty-print on the fly:
+
+```powershell
+Get-Content C:\ky8er-music-bot\logs\stdout.log -Wait | npx pino-pretty
+```
+
+#### 7. Updating
+
+```powershell
+cd C:\ky8er-music-bot
+git pull
+npm ci --omit=dev
+# If commands changed:
+node src\deploy-commands.js
+nssm restart Ky8erMusicBot
+```
 
 ## Environment variables
 
@@ -155,7 +285,8 @@ systemctl restart ky8er-music-bot
 - `/play` only accepts URLs whose host is `youtube.com`, `www.youtube.com`, `m.youtube.com`, or `youtu.be`, and whose protocol is `https`. Anything else is rejected before reaching ytdl.
 - The bot connects with only `Guilds`, `GuildVoiceStates`, and `GuildMessages` intents — no privileged intents.
 - The Discord token is read from `process.env`; `.env` is gitignored. Tokens are never logged (pino redact paths cover common cases).
-- On the VPS, `.env` lives at `/opt/ky8er-music-bot/.env` with `0600` perms owned by the unprivileged `ky8er` user. The systemd unit reads it via `EnvironmentFile=` so secrets never appear in `ps`/`/proc/<pid>/cmdline`.
+- On Linux, `.env` lives at `/opt/ky8er-music-bot/.env` with `0600` perms owned by the unprivileged `ky8er` user. The systemd unit reads it via `EnvironmentFile=` so secrets never appear in `ps`/`/proc/<pid>/cmdline`.
+- On Windows, `.env` should be ACL-locked to `Administrators` and `SYSTEM` only (`icacls` snippet in the Windows section above). The service runs under `LocalSystem` by default; if you'd rather run under a dedicated low-privilege account, set `nssm set Ky8erMusicBot ObjectName .\ky8erbot <password>`.
 - The systemd unit applies `NoNewPrivileges`, `ProtectSystem=strict`, `ProtectHome`, `PrivateTmp`, an empty `CapabilityBoundingSet`, and a 512 MB memory cap to contain blast radius if a dependency is ever compromised.
 - CI runs `npm audit --audit-level=high`, ESLint, and unit tests on every push and PR. CodeQL runs weekly. Dependabot opens weekly PRs for npm and github-actions updates.
 
