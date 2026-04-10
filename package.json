@@ -32,7 +32,7 @@
   "homepage": "https://github.com/JakeWard98/Ky8er-Music-Bot#readme",
   "dependencies": {
     "@discordjs/opus": "^0.10.0",
-    "@discordjs/voice": "^0.17.0",
+    "@discordjs/voice": "^0.19.2",
     "@distube/ytdl-core": "^4.14.4",
     "axios": "^1.7.7",
     "discord.js": "^14.16.3",
