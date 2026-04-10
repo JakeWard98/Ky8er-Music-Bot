@@ -1,0 +1,48 @@
+[Unit]
+Description=Ky8er Music Bot (Discord)
+Documentation=https://github.com/JakeWard98/Ky8er-Music-Bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ky8er
+Group=ky8er
+WorkingDirectory=/opt/ky8er-music-bot
+EnvironmentFile=/opt/ky8er-music-bot/.env
+ExecStart=/usr/bin/node src/index.js
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=15s
+KillSignal=SIGINT
+
+# Logging — captured by journald; view with: journalctl -u ky8er-music-bot -f
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ky8er-music-bot
+
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/ky8er-music-bot
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=false
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+AmbientCapabilities=
+UMask=0077
+
+# Resource limits
+LimitNOFILE=4096
+MemoryMax=512M
+
+[Install]
+WantedBy=multi-user.target
